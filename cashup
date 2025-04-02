@@ -1,1 +1,684 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { Calculator, DollarSign, Plus, Save, Trash2, CalendarIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+// Define expense item type
+type ExpenseItem = {
+  id: string
+  name: string
+  amount: number
+  isFixed?: boolean
+}
+
+export default function CashupForm() {
+  // Cash denomination state
+  const [cash, setCash] = useState({
+    // Bills
+    hundreds: 0,
+    fifties: 0,
+    twenties: 0,
+    tens: 0,
+    fives: 0,
+    // Coins
+    twoDollars: 0,
+    oneDollars: 0,
+    fiftyCents: 0,
+    twentyCents: 0,
+    tenCents: 0,
+    fiveCents: 0,
+    // Coin Bundles
+    twoDollarRoll: 0,
+    oneDollarRoll: 0,
+    fiftyCentRoll: 0,
+    twentyCentRoll: 0,
+    tenCentRoll: 0,
+    fiveCentRoll: 0,
+  })
+
+  // Notes state
+  const [notes, setNotes] = useState("")
+
+  // Updated expenses state with fixed Float expense
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([
+    { id: "float", name: "Float", amount: 400, isFixed: true },
+    { id: "1", name: "", amount: 0 },
+  ])
+
+  // Expected amount state
+  const [expectedAmount, setExpectedAmount] = useState(0)
+
+  // Form identification state
+  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [store, setStore] = useState("")
+  const [employeeName, setEmployeeName] = useState("")
+
+  // Handle cash input changes
+  const handleCashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setCash({
+      ...cash,
+      [name]: Number.parseFloat(value) || 0,
+    })
+  }
+
+  // Handle expense name change
+  const handleExpenseNameChange = (id: string, name: string) => {
+    setExpenses(expenses.map((expense) => (expense.id === id ? { ...expense, name } : expense)))
+  }
+
+  // Handle expense amount change
+  const handleExpenseAmountChange = (id: string, amount: number) => {
+    setExpenses(expenses.map((expense) => (expense.id === id ? { ...expense, amount } : expense)))
+  }
+
+  // Add a new expense item
+  const addExpenseItem = () => {
+    const newId = String(Date.now())
+    setExpenses([...expenses, { id: newId, name: "", amount: 0 }])
+  }
+
+  // Remove an expense item
+  const removeExpenseItem = (id: string) => {
+    // Don't remove if it's the fixed Float expense or if it would leave no custom expenses
+    const customExpenses = expenses.filter((expense) => !expense.isFixed)
+    if (customExpenses.length > 1) {
+      setExpenses(expenses.filter((expense) => expense.id !== id))
+    }
+  }
+
+  // Calculate cash total
+  const calculateCashTotal = () => {
+    return (
+      // Bills
+      cash.hundreds * 100 +
+      cash.fifties * 50 +
+      cash.twenties * 20 +
+      cash.tens * 10 +
+      cash.fives * 5 +
+      // Coins
+      cash.twoDollars * 2 +
+      cash.oneDollars * 1 +
+      cash.fiftyCents * 0.5 +
+      cash.twentyCents * 0.2 +
+      cash.tenCents * 0.1 +
+      cash.fiveCents * 0.05 +
+      // Coin Bundles (standard roll quantities)
+      cash.twoDollarRoll * 2 * 25 +
+      cash.oneDollarRoll * 1 * 20 +
+      cash.fiftyCentRoll * 0.5 * 20 +
+      cash.twentyCentRoll * 0.2 * 20 +
+      cash.tenCentRoll * 0.1 * 40 +
+      cash.fiveCentRoll * 0.05 * 40
+    )
+  }
+
+  // Calculate expenses total
+  const calculateExpensesTotal = () => {
+    return expenses.reduce((total, expense) => total + expense.amount, 0)
+  }
+
+  // Calculate grand total
+  const calculateGrandTotal = () => {
+    return calculateCashTotal() - calculateExpensesTotal()
+  }
+
+  // Calculate difference
+  const calculateDifference = () => {
+    return calculateGrandTotal() - expectedAmount
+  }
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Here you would typically send the data to your backend
+    alert(`Cashup completed! Total: $${calculateGrandTotal().toFixed(2)}`)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto">
+      <Card className="shadow-sm">
+        <CardHeader className="bg-primary text-primary-foreground py-3">
+          <CardTitle className="text-xl flex items-center">
+            <DollarSign className="mr-2 h-5 w-5" />
+            Cash Up Form
+          </CardTitle>
+          <CardDescription className="text-primary-foreground/80 text-sm">
+            End of day cash and payment reconciliation
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          {/* Form Identification Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="date" className="text-sm">
+                Date
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal h-9 text-sm"
+                    id="date"
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {date ? format(date, "PP") : <span>Select date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="store" className="text-sm">
+                Store
+              </Label>
+              <Input
+                id="store"
+                placeholder="Enter store name"
+                value={store}
+                onChange={(e) => setStore(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="employeeName" className="text-sm">
+                Name
+              </Label>
+              <Input
+                id="employeeName"
+                placeholder="Enter your name"
+                value={employeeName}
+                onChange={(e) => setEmployeeName(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+
+          <Separator className="my-2" />
+
+          {/* Cash Count Section - Compact */}
+          <div>
+            <h2 className="text-lg font-semibold mb-2">Cash Count</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Left Column - Bills & Bundles */}
+              <div className="space-y-3">
+                {/* Bills Section */}
+                <div className="bg-muted/20 p-3 rounded-md">
+                  <h3 className="text-sm font-medium mb-2 text-primary flex items-center">
+                    <DollarSign className="h-3.5 w-3.5 mr-1" />
+                    Bills
+                  </h3>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="hundreds" className="w-10">
+                        $100
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="hundreds"
+                        name="hundreds"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.hundreds || ""}
+                        onChange={handleCashChange}
+                      />
+                      <span className="ml-auto font-mono text-xs text-muted-foreground">
+                        ${(cash.hundreds * 100).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="fifties" className="w-10">
+                        $50
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="fifties"
+                        name="fifties"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.fifties || ""}
+                        onChange={handleCashChange}
+                      />
+                      <span className="ml-auto font-mono text-xs text-muted-foreground">
+                        ${(cash.fifties * 50).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="twenties" className="w-10">
+                        $20
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="twenties"
+                        name="twenties"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.twenties || ""}
+                        onChange={handleCashChange}
+                      />
+                      <span className="ml-auto font-mono text-xs text-muted-foreground">
+                        ${(cash.twenties * 20).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="tens" className="w-10">
+                        $10
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="tens"
+                        name="tens"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.tens || ""}
+                        onChange={handleCashChange}
+                      />
+                      <span className="ml-auto font-mono text-xs text-muted-foreground">
+                        ${(cash.tens * 10).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="fives" className="w-10">
+                        $5
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="fives"
+                        name="fives"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.fives || ""}
+                        onChange={handleCashChange}
+                      />
+                      <span className="ml-auto font-mono text-xs text-muted-foreground">
+                        ${(cash.fives * 5).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coin Bundles Section */}
+                <div className="bg-muted/20 p-3 rounded-md">
+                  <h3 className="text-sm font-medium mb-2 text-primary">Coin Bundles (Rolls)</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="twoDollarRoll" className="w-10">
+                        $2
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="twoDollarRoll"
+                        name="twoDollarRoll"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.twoDollarRoll || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="oneDollarRoll" className="w-10">
+                        $1
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="oneDollarRoll"
+                        name="oneDollarRoll"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.oneDollarRoll || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="fiftyCentRoll" className="w-10">
+                        50¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="fiftyCentRoll"
+                        name="fiftyCentRoll"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.fiftyCentRoll || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="twentyCentRoll" className="w-10">
+                        20¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="twentyCentRoll"
+                        name="twentyCentRoll"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.twentyCentRoll || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="tenCentRoll" className="w-10">
+                        10¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="tenCentRoll"
+                        name="tenCentRoll"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.tenCentRoll || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="fiveCentRoll" className="w-10">
+                        5¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="fiveCentRoll"
+                        name="fiveCentRoll"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.fiveCentRoll || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Coins & Summary */}
+              <div className="space-y-3">
+                {/* Coins Section */}
+                <div className="bg-muted/20 p-3 rounded-md">
+                  <h3 className="text-sm font-medium mb-2 text-primary">Coins (Individual)</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="twoDollars" className="w-10">
+                        $2
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="twoDollars"
+                        name="twoDollars"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.twoDollars || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="oneDollars" className="w-10">
+                        $1
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="oneDollars"
+                        name="oneDollars"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.oneDollars || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="fiftyCents" className="w-10">
+                        50¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="fiftyCents"
+                        name="fiftyCents"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.fiftyCents || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="twentyCents" className="w-10">
+                        20¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="twentyCents"
+                        name="twentyCents"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.twentyCents || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="tenCents" className="w-10">
+                        10¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="tenCents"
+                        name="tenCents"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.tenCents || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+
+                    <div className="flex items-center text-sm">
+                      <Label htmlFor="fiveCents" className="w-10">
+                        5¢
+                      </Label>
+                      <span className="mx-1">×</span>
+                      <Input
+                        id="fiveCents"
+                        name="fiveCents"
+                        type="number"
+                        min="0"
+                        className="h-7 max-w-[70px] text-sm"
+                        value={cash.fiveCents || ""}
+                        onChange={handleCashChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cash Summary */}
+                <div className="p-3 bg-primary/10 rounded-md">
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="expectedAmount" className="text-sm">
+                        Expected Amount (from POS/Register)
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm">$</span>
+                        <Input
+                          id="expectedAmount"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="pl-6 h-8 text-sm"
+                          value={expectedAmount || ""}
+                          onChange={(e) => setExpectedAmount(Number.parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                    </div>
+                    <Separator className="my-1" />
+                    <div className="flex justify-between items-center text-sm font-medium">
+                      <span>Cash Total:</span>
+                      <span className="font-bold font-mono">${calculateCashTotal().toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="my-2" />
+
+          {/* Summary Section - Compact and Parallel */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Expenses Section - Left Column */}
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Expenses</h2>
+              <div className="space-y-2">
+                {expenses.map((expense) => (
+                  <div key={expense.id} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Expense name"
+                        value={expense.name}
+                        onChange={(e) => handleExpenseNameChange(expense.id, e.target.value)}
+                        disabled={expense.isFixed}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="w-28">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm">$</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="pl-6 h-8 text-sm"
+                          value={expense.amount || ""}
+                          onChange={(e) =>
+                            handleExpenseAmountChange(expense.id, Number.parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => removeExpenseItem(expense.id)}
+                      disabled={expense.isFixed || expenses.filter((e) => !e.isFixed).length <= 1}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="sr-only">Remove</span>
+                    </Button>
+                  </div>
+                ))}
+
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addExpenseItem}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Add Expense
+                </Button>
+              </div>
+
+              <div className="mt-2 p-2 bg-muted rounded-md">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-sm">Expenses Total:</span>
+                  <span className="font-bold font-mono">${calculateExpensesTotal().toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Totals Section - Right Column */}
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Summary</h2>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 p-2 bg-muted rounded-md">
+                  <div>
+                    <span className="text-xs font-medium">Cash Total</span>
+                    <p className="font-bold font-mono">${calculateCashTotal().toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium">Expenses Total</span>
+                    <p className="font-bold font-mono">${calculateExpensesTotal().toFixed(2)}</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between p-3 bg-primary/10 rounded-md">
+                  <div>
+                    <span className="text-xs font-medium">Grand Total</span>
+                    <p className="text-lg font-bold font-mono">${calculateGrandTotal().toFixed(2)}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-medium">Difference</span>
+                    <p
+                      className={`text-lg font-bold font-mono ${calculateDifference() < 0 ? "text-red-500" : calculateDifference() > 0 ? "text-green-500" : ""}`}
+                    >
+                      ${calculateDifference().toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes Section - Moved to right column */}
+              <div className="mt-3">
+                <h2 className="text-lg font-semibold mb-2">Notes</h2>
+                <Textarea
+                  placeholder="Add any additional notes or comments here..."
+                  className="min-h-[120px] text-sm"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex gap-3 bg-muted/50 p-3">
+          <Button type="submit" className="h-9 text-sm">
+            <Save className="mr-1.5 h-3.5 w-3.5" />
+            Submit Cashup
+          </Button>
+          <Button type="button" variant="outline" className="h-9 text-sm" onClick={() => window.print()}>
+            <Calculator className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+        </CardFooter>
+      </Card>
+    </form>
+  )
+}
 
